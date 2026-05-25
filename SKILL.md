@@ -1,6 +1,6 @@
 ---
 name: stellar-scout
-description: A skill for Stellar builders. Validate ideas before you build, surface existing projects, match open SCF-funded RFPs, and get pointed to the right SDK — whether you're entering a hackathon, applying for a Stellar Community Fund grant, or shipping independently. Use when the user is exploring what to build on Stellar, vetting an idea, checking what's been tried, or asking who has shipped in a category.
+description: Scouts the Stellar ecosystem before you build. Validates ideas against existing projects, matches open SCF-funded RFPs, recommends Soroban SDK skills, and cites primary sources (audits, SEPs, papers). Use whenever someone asks what to build on Stellar, vets an idea, preps for an SCF grant or hackathon, or needs prior-art / security findings on a Soroban protocol.
 ---
 
 # Stellar Scout
@@ -129,7 +129,7 @@ Returns: `.hackathons[*]` with name, dates, status, externalUrl, source, prizePo
 **Empty-result fallback (very important):** when `?status=upcoming` or `?status=active` returns 0 hackathons, the response includes a `.meta.fallbackChannels` object pointing the user at live sources outside our DB. Stellar's hackathon cadence is sporadic — between events our API genuinely has nothing, but new ones get announced on:
 - **`@BuildOnStellar`** on X/Twitter (`https://x.com/BuildOnStellar`) — first to announce
 - **`https://stellarlight.xyz/hackathons`** — live page; curators add events here before they fully populate the API
-- **DoraHacks Stellar org** (`https://dorahacks.io/org/stellar-development-foundation`) — registration goes live here
+- **DoraHacks — Stellar Development Foundation** (`https://dorahacks.io/org/3096`) — registration goes live here
 
 **Do not say *"no Stellar hackathons exist"* when this happens** — say *"there are no upcoming/active hackathons in stellarlight's feed right now (we're between events). The next one will land at @BuildOnStellar or stellarlight.xyz/hackathons — follow those for the announcement."* Then pivot the user to RFPs (`/api/rfps?status=open`) since those are continuously fundable.
 
@@ -151,9 +151,7 @@ Single-hackathon detail. **Two response shapes** depending on the data source:
 Stellar builder directory (synced from Stellar Passport). **Opt-in only, currently empty pending the next Passport sync — treat as future capability today.** When this endpoint returns 0 results, **do not retry with different queries** — surface the limitation to the user and route them to fallback channels immediately.
 
 Params: `q={text}`, `location={city}`, `scfTier={tier}`, `featured=1`.
-Returns: `.builders[*]` with githubUsername, displayName, bio, roleTitle, location, scfTier, projects[].
-
-When you return 0 matches (the common case today), **say so explicitly** in one line — *"Builders directory is empty / sparse right now (Stellar Passport sync pending). For teammate matching today, try Stellar Discord #builders, the Stellar GitHub org, recent SCF Round project pages, or DM the original `authorName` on an open RFP."* Then move on — don't loop the endpoint.
+Returns: `.builders[*]` with githubUsername, displayName, bio, roleTitle, location, scfTier, projects[]. When `.meta.counts.returned === 0`, the response also includes `.meta.advisory` with a one-line summary + 2 fallback channels (Stellar Discord + GitHub topic:stellar) — relay these verbatim to the user. The advisory exists specifically so you don't confabulate ecosystem-level claims from an empty directory.
 
 ### `GET /api/projects/search`
 Search existing Stellar projects (competitor / overlap lookup). The workhorse for Deep Dive step 2.
@@ -220,6 +218,13 @@ Always cite the source URL from each returned chunk — that's the whole point. 
 Params: `q={query}` (required), `source={sdf-blog|scf-handbook|sep|dev-docs|paper|scf-proposal|lumenloop|lumenloop-research|audit|ec-developer-report}` (optional filter), `limit=N` (default 8, max 25).
 
 Returns: `.results[*]` with `{id, source, title, section, url, content, chunkIndex, score}`. `.meta.mode` indicates `"vector"` (semantic search via Atlas $vectorSearch) or `"keyword"` (fallback when the vector index isn't ready). `.meta.model` reports the embedding model used.
+
+**Read the `score` before citing.** Vector search always returns the top-K nearest chunks even if none are truly relevant. Score rough guide:
+- `score ≥ 0.75` → strong match, cite confidently
+- `score 0.65–0.75` → adjacent / partial, lead with "broadly related, not a direct answer"
+- `score < 0.65` → weak match; **don't cite as authoritative** — say *"the closest thing in the corpus is X, but it doesn't directly answer your question"*
+
+This honesty floor matters more for audit + paper queries than for dev-docs (where almost everything is broadly related). When all returned chunks score below 0.65, treat the topic as outside our corpus and tell the user.
 
 **Rate limit:** 60 requests / minute / IP. Don't loop the endpoint.
 
