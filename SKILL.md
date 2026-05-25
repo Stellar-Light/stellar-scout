@@ -33,7 +33,7 @@ Their answer determines which endpoints you lead with — see the user-type rout
 - *"who's built X on Stellar"* / *"has anyone tried X"* → competitor lookup
 - *"what should I build"* / *"what RFPs are open"* / *"what's currently fundable"* → list open RFPs (`/api/rfps?status=open`)
 - *"what got funded in SCF round X"* / *"prior SCF projects in {category}"* → SCF history via `/api/projects/search?scfAwarded=1`
-- *"how does Stellar compare on dev activity"* → `/api/leaderboard` (peer L1 data in `.peers`)
+- *"how does Stellar compare on dev activity"* → `/api/leaderboard` for Stellar ecosystem stats (`.ecosystem.activeDevs28d`, `.ecosystem.commits28d`, `.ecosystem.multichainDevs28d`); for cross-chain peer comparison use `/api/research?source=ec-developer-report&q=stellar+devs+comparison`
 - *"find me a teammate / mentor / dev"* → Builders search (small + growing — for IRL hackathons the local team often isn't in the directory; fall back to Stellar Discord)
 - *"what won at Stellar Hacks {name}"* / *"who placed in {hackathon}"* → hackathon results
 - *"what's the prize pool for the next Stellar hackathon"* → upcoming hackathons
@@ -118,10 +118,10 @@ Returns: `.ecosystem.activeDevs28d`, `.ecosystem.commits28d`, `.projects[*]`.
 
 ### `GET /api/hackathons`
 A merged feed of:
-  - **Curated** Stellar hackathons (rich detail, internal pages)
-  - **Live** DoraHacks events for Stellar (org IDs 3096 + 3853)
+  - **Live** DoraHacks events for Stellar (org IDs 3096 + 3853) — primary feed today
+  - **Curated** Stellar hackathons (richer detail, internal pages) — currently sparse; treat as a future capability. Check `.meta.counts.curated` before assuming richer detail is available.
 
-Each row has a `source` field (`"curated"` or `"dorahacks"`) so you can tell them apart. Curated entries win on de-duplication when a DoraHacks event has already been mirrored.
+Each row has a `source` field (`"curated"` or `"dorahacks"`). When `.meta.counts.curated === 0` (common right now), every hackathon's detail comes from DoraHacks and follows the DoraHacks-only response shape (see `/api/hackathons/{slug}` below).
 
 Params: `status=upcoming|active|completed`, `organizer={slug}`, `source=curated|dorahacks` (optional, to restrict to one feed).
 Returns: `.hackathons[*]` with name, dates, status, externalUrl, source, prizePoolUSD (DoraHacks only), hackersCount (DoraHacks only). `.meta.counts.{curated,dorahacks,returned}` for quick coverage stats.
@@ -305,7 +305,7 @@ Self-check — returns Scout skill version, current timestamp, and freshness (`l
 **User:** "I'm a Solidity dev moving to Stellar to ship a real-time settlement product. What's the state of the ecosystem?"
 **Agent action:**
 1. **Confirm user type:** *"Independent builder or team — so I'll lead with ecosystem traction + adjacent projects, not hackathon/grant specifics."*
-2. `GET /api/leaderboard` → ecosystem snapshot. Surface `.ecosystem.activeDevs28d`, `.ecosystem.commits28d`, and Stellar's rank in `.peers` vs Ethereum/Solana. Gives the user the macro picture.
+2. `GET /api/leaderboard` → ecosystem snapshot. Surface `.ecosystem.activeDevs28d`, `.ecosystem.commits28d`, `.ecosystem.multichainDevs28d`, `.ecosystem.stellarOnlyDevs28d`. For *cross-chain peer comparison* (Ethereum / Solana / etc.), chain a second call: `GET /api/research?source=ec-developer-report&q=stellar+L1+comparison`.
 3. `GET /api/projects/search?q=settlement+payment` → adjacent existing projects. Note which are SCF-funded vs not, which are abandoned.
 4. SDK rec: `GET /api/skills/soroban` + `/api/skills/agentic-payments` (settlement infra often touches both).
 5. Honest close: *"Independent builder or teams on Stellar typically still chase SCF funding eventually — even without a grant target now, vet your idea against the open RFPs at `https://stellarlight.xyz/ideas` to see if there's an aligned brief for the next round."*
