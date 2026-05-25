@@ -219,12 +219,13 @@ Params: `q={query}` (required), `source={sdf-blog|scf-handbook|sep|dev-docs|pape
 
 Returns: `.results[*]` with `{id, source, title, section, url, content, chunkIndex, score}`. `.meta.mode` indicates `"vector"` (semantic search via Atlas $vectorSearch) or `"keyword"` (fallback when the vector index isn't ready). `.meta.model` reports the embedding model used.
 
-**Read the `score` before citing.** Vector search always returns the top-K nearest chunks even if none are truly relevant. Score rough guide:
-- `score ≥ 0.75` → strong match, cite confidently
-- `score 0.65–0.75` → adjacent / partial, lead with "broadly related, not a direct answer"
-- `score < 0.65` → weak match; **don't cite as authoritative** — say *"the closest thing in the corpus is X, but it doesn't directly answer your question"*
+**Read the `score` before citing.** Vector search always returns the top-K nearest chunks even if none are truly relevant. Calibrated from real query patterns:
+- `score ≥ 0.78` → direct hit, cite confidently (e.g. SCP query → Mazières paper)
+- `score 0.72–0.78` → relevant, cite normally (e.g. "soroban storage" → dev-docs)
+- `score 0.68–0.72` → adjacent / partial — lead with *"broadly related, not a direct answer"*
+- `score < 0.68` → weak match; **don't cite as authoritative** — say *"the closest thing in the corpus is X, but it doesn't directly answer your question"*
 
-This honesty floor matters more for audit + paper queries than for dev-docs (where almost everything is broadly related). When all returned chunks score below 0.65, treat the topic as outside our corpus and tell the user.
+When all returned chunks score below 0.68, treat the topic as outside our corpus and tell the user explicitly — don't confabulate.
 
 **Rate limit:** 60 requests / minute / IP. Don't loop the endpoint.
 
