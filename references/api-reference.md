@@ -87,7 +87,7 @@ Topic clustering across active Stellar projects with crowdedness scoring.
 **Returns:** `.clusters[*]` with:
 - `.key` — the category or type name
 - `.size` — project count in this cluster
-- `.crowdedness` — 1–10, formula `size + 2×scfFundedCount + 1×hackathonWinnerCount`, clipped
+- `.crowdedness` — 1–10, log-scaled: `round(log₂(size+1) + log₂(scfFunded+1) + 0.5×log₂(winners+1))`, clipped to [1,10]. Log scaling means a cluster of 200 projects scores ~8/10 vs 6 projects ~3/10 — actually differentiates, unlike a linear formula. Cross-reference `.size` + `.scfFundedCount` for raw numbers.
 - `.scfFundedCount`, `.scfTotalUSD`, `.hackathonWinnerCount`
 - `.sampleProjects[]` — up to 5 ranked by SCF funding + hackathon prize
 
