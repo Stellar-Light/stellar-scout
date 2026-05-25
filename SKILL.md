@@ -1,5 +1,9 @@
 ---
 name: stellar-scout
+version: 1.0.0
+homepage: https://stellarlight.xyz/scout
+license: MIT
+compatibility: Claude Code, Codex, OpenClaw, Cursor, Amp, Antigravity, Cline, plus 50+ others via vercel-labs/skills
 description: Scouts the Stellar ecosystem before you build. Validates ideas against existing projects, matches open SCF-funded RFPs, recommends Soroban SDK skills, and cites primary sources (audits, SEPs, papers). Use whenever someone asks what to build on Stellar, vets an idea, preps for an SCF grant or hackathon, or needs prior-art / security findings on a Soroban protocol.
 ---
 
@@ -94,6 +98,80 @@ If no Builders match a skill query, say *"no public Builders in our directory ma
 
 If a hackathon's prize pool isn't documented, say *"prize pool not published; check {externalUrl}"* — don't estimate.
 
+## Output contract
+
+### Conversational mode (the default)
+- Bullet points with **inline citations** — project slug, URL, or chunk title in parens after the claim
+- 5–15 bullets typical; cap at 20 unless the user explicitly asks for more
+- When a single claim has multiple sources, list them comma-separated inline, not in a separate "Sources" block
+- Offer Deep Dive at the end **only** when the user's question warrants it ("vet this idea" / "should I build X" / "full landscape on Y"). Don't pitch Deep Dive after a one-liner question.
+
+### Deep Dive mode (structured output)
+Use the 8-step workflow above. Final answer follows this skeleton — every section is mandatory; skip none:
+
+1. **User type recap** — *"You're entering a hackathon / applying for an SCF grant / shipping independently."* One line.
+2. **Gap classification + crowdedness score** — Full gap / Partial gap / False gap, then 1–10 with one-line justification including the count math.
+3. **Existing projects (5–8 bullets)** — name + slug + score + one-line on what they do + SCF status. Inline citations.
+4. **Relevant RFPs (if any open match)** — RFP title + link + one-line on fit. If none, say *"no current SCF round covers this lane"*.
+5. **SDK / track recommendation** — point to one or two `skills.stellar.org` skills, name them.
+6. **Teammate candidates (or honest no-data)** — if `/api/builders` returns 0, surface the `meta.advisory` channels verbatim. Don't invent.
+7. **Past SCF outcomes / hackathon winners in adjacent space** — name + amount + 1-line outcome. *"X received $50k in Round Y for similar territory."*
+8. **Next steps (3–5 bullets, action-oriented)** — concrete things the user can do this week.
+
+### 8-principle output philosophy
+The structure isn't enough — *answer quality* is what makes this skill worth installing. Internalize these:
+
+1. **Be specific, not vague.** Bad: *"There's a gap in payments."* Good: *"SMEs on Stellar wait 30–60 days for cross-border invoice settlement; no current project addresses sub-1-hour settlement for B2B amounts > $10k (closest: StellarPay, SCF-funded $148k, but consumer-only)."*
+2. **Ground every claim in evidence.** Project slug, RFP URL, audit finding ID, or research-corpus chunk citation. If you can't cite it, don't say it.
+3. **Address the hard questions.** Two-sided marketplace? Name the cold-start problem. Regulatory risk? Name the jurisdictions (US MSB, EU MiCA, etc.). Don't hide friction.
+4. **Map the landscape, don't dismiss it.** Existing players are market validation, not a reason to stop. *"3 projects in this space — interesting, study how they failed/succeeded."*
+5. **Connect to foundational concepts when useful.** Cite Mazières on consensus, SEPs on standards, SCF Handbook on grant mechanics. Distinguish "what the protocol does" from "what's been built."
+6. **Research before declaring a gap.** Hackathon-project count != market saturation. Use `/api/research` to check whether prior thinking has discussed the idea — even un-shipped, a strong thesis is signal.
+7. **No execution chatter in user-facing output.** Don't say *"Now let me check the audit corpus…"*. Run the calls silently; present findings directly.
+8. **Surface differentiation, not just competition.** *"Project X is building monitoring with paying customers — study their pricing model; your angle could be {specific differentiator from their gap}."*
+
+### Format rules (apply to both modes)
+- **Bullet points, not tables.** Markdown tables look broken in many agents' UIs.
+- **Bold the projects, RFP titles, severity tags inline** — visual scanability for humans reading the agent's reply.
+- **No separate `Sources` or `Citations` section at the bottom** — cite inline, every time.
+- **Numbers earn their place.** *"$148k SCF-funded"*, *"~600 daily active devs"*, *"3/12 audits"* — concrete > abstract.
+- **When you don't know, say so.** *"Outside the corpus"* / *"Not indexed in stellarlight"* > confabulating.
+
+## Key endpoints (quick reference)
+
+Full docs in `references/api-reference.md`. Quick lookup table:
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `/api/status` | GET | Self-check + freshness per data source |
+| `/api/hackathons` | GET | Curated + DoraHacks merged feed (with `fallbackChannels` when empty) |
+| `/api/hackathons/{slug}` | GET | Single-event detail (dual-shape: curated or DoraHacks-only) |
+| `/api/hackathons/compare` | GET/POST | Side-by-side comparison of 2-5 hackathons with `deltas` |
+| `/api/analyze` | GET | Cross-event analytics rollup (hackathons + categories + funding) |
+| `/api/clusters` | GET | Topic clusters by category/type with crowdedness score |
+| `/api/builders` | GET | Stellar Passport directory (currently empty + `meta.advisory`) |
+| `/api/projects/search` | GET | Project search with tiered `matchMode` fallback |
+| `/api/rfps` | GET | Open + closed SCF-funded sponsor briefs |
+| `/api/skills` | GET | SDF skills catalog (skills.stellar.org) |
+| `/api/skills/{name}` | GET | Full content of one SDF skill |
+| `/api/research` | GET | Vector search over ~4,500-chunk research corpus |
+| `/api/feedback` | POST | In-skill feedback channel (bug/missing-data/wrong-answer/suggestion) |
+
+All endpoints rate-limited per IP. All return `.meta.counts` + `.meta.source` for traceability.
+
+## References (load these on demand)
+
+Lean SKILL.md keeps the core workflow + output contract. The two reference files load when the user asks how an endpoint behaves or for example workflows:
+
+- **`references/api-reference.md`** — full per-endpoint docs (params, return shapes, score thresholds, fallback channels, edge cases). Load when the user query needs an unusual filter combo or you need the full response schema.
+- **`references/examples.md`** — 13 worked example sessions covering all builder types (hackathon entrant / SCF applicant / indie / security-conscious / macro analyst). Load when the user query matches one of the example patterns + you want the proven endpoint sequence.
+
+**If you were pasted in manually** (without the full directory): both reference files are also fetchable as raw markdown:
+- `https://stellarlight.xyz/skills/references/api-reference.md`
+- `https://stellarlight.xyz/skills/references/examples.md`
+
+The recommended install is `npx skills add Stellar-Light/stellar-scout` (or `-a codex` / `-a openclaw` / etc.) — that pulls SKILL.md + both references into one directory automatically.
+
 ## Stellar-native topic clusters
 
 When framing existing projects or suggesting tracks, use these — they map to `skills.stellar.org`'s taxonomy and Stellar's actual ecosystem:
@@ -106,228 +184,6 @@ When framing existing projects or suggesting tracks, use these — they map to `
 - **ZK proofs** — privacy primitives, confidential transactions
 - **SEP standards** — protocol-level work, new SEPs / CAPs
 - **Data infrastructure** — indexers, Horizon clients, RPC infra, analytics
-
-## Available endpoints
-
-All hosted at `https://stellarlight.xyz`. Public read-only. 5-minute edge cache.
-
-### `GET /api/leaderboard`
-Stellar dev-activity stats + ranked projects.
-Params: `sort=activity|stars|issues`, `range=7d|30d|90d|1y|all`, `category={cat}`, `limit=N`.
-Returns: `.ecosystem.activeDevs28d`, `.ecosystem.commits28d`, `.projects[*]`.
-
-### `GET /api/hackathons`
-A merged feed of:
-  - **Live** DoraHacks events for Stellar (org IDs 3096 + 3853) — primary feed today
-  - **Curated** Stellar hackathons (richer detail, internal pages) — currently sparse; treat as a future capability. Check `.meta.counts.curated` before assuming richer detail is available.
-
-Each row has a `source` field (`"curated"` or `"dorahacks"`). When `.meta.counts.curated === 0` (common right now), every hackathon's detail comes from DoraHacks and follows the DoraHacks-only response shape (see `/api/hackathons/{slug}` below).
-
-Params: `status=upcoming|active|completed`, `organizer={slug}`, `source=curated|dorahacks` (optional, to restrict to one feed).
-Returns: `.hackathons[*]` with name, dates, status, externalUrl, source, prizePoolUSD (DoraHacks only), hackersCount (DoraHacks only). `.meta.counts.{curated,dorahacks,returned}` for quick coverage stats.
-
-**Empty-result fallback (very important):** when `?status=upcoming` or `?status=active` returns 0 hackathons, the response includes a `.meta.fallbackChannels` object pointing the user at live sources outside our DB. Stellar's hackathon cadence is sporadic — between events our API genuinely has nothing, but new ones get announced on:
-- **`@BuildOnStellar`** on X/Twitter (`https://x.com/BuildOnStellar`) — first to announce
-- **`https://stellarlight.xyz/hackathons`** — live page; curators add events here before they fully populate the API
-- **DoraHacks — Stellar Development Foundation** (`https://dorahacks.io/org/3096`) — registration goes live here
-
-**Do not say *"no Stellar hackathons exist"* when this happens** — say *"there are no upcoming/active hackathons in stellarlight's feed right now (we're between events). The next one will land at @BuildOnStellar or stellarlight.xyz/hackathons — follow those for the announcement."* Then pivot the user to RFPs (`/api/rfps?status=open`) since those are continuously fundable.
-
-### `GET /api/hackathons/{slug}`
-Single-hackathon detail. **Two response shapes** depending on the data source:
-
-**(a) Curated** (slug resolves to a Payload Hackathons row) — full detail:
-- `.hackathon.stats` — totalSubmissions, totalPrizeUSD, winners count, outcome funnel (built / inProgress / abandoned / unknown)
-- `.hackathon.tracks[*]` — prize tracks derived from past submissions, each with `{name, winnerCount, submissionCount, totalPrizeUSD}`. Use for "which tracks did this hackathon pay out for?"
-- `.winners[*]` — projects that placed
-- `.submissions[*]` — every submission with placement, prize, track
-
-**(b) DoraHacks-only** (slug matches a live DoraHacks event we haven't curated) — metadata + headline numbers only:
-- `.hackathon.source = "dorahacks"`, `.hackathon.prizePoolUSD`, `.hackathon.hackersCount`
-- `.winners`, `.submissions`, `.tracks` all empty; `.meta.note` explains why
-- Tell the user to visit `.hackathon.externalUrl` for the per-submission detail (DoraHacks doesn't expose submissions via API for stellarlight to mirror)
-
-### `GET /api/builders`
-Stellar builder directory (synced from Stellar Passport). **Opt-in only, currently empty pending the next Passport sync — treat as future capability today.** When this endpoint returns 0 results, **do not retry with different queries** — surface the limitation to the user and route them to fallback channels immediately.
-
-Params: `q={text}`, `location={city}`, `scfTier={tier}`, `featured=1`.
-Returns: `.builders[*]` with githubUsername, displayName, bio, roleTitle, location, scfTier, projects[]. When `.meta.counts.returned === 0`, the response also includes `.meta.advisory` with a one-line summary + 2 fallback channels (Stellar Discord + GitHub topic:stellar) — relay these verbatim to the user. The advisory exists specifically so you don't confabulate ecosystem-level claims from an empty directory.
-
-### `GET /api/projects/search`
-Search existing Stellar projects (competitor / overlap lookup). The workhorse for Deep Dive step 2.
-Params: `q={keywords}`, `category={cat}`, `hackathon={slug}`, `scfAwarded=1`, `limit=N`.
-Returns: `.projects[*]` scored by keyword overlap, sorted by relevance.
-
-**Tiered keyword matching — read `.meta.matchMode` before framing results:**
-- `strict` — every query token matched (highest confidence; lead with "I found N exact matches for {q}")
-- `loose-1` — all but one token matched (treat as adjacent; lead with "I couldn't find an exact match, but these are close — N of M keywords match")
-- `majority` — at least ⌈N/2⌉ tokens matched (broadest interpretation; lead with "broader interpretation of {q} — these projects overlap on the main themes")
-- `all` — no `q` was supplied; results are unfiltered
-
-This fallback chain means **a multi-word natural query like *"real-time price API for Soroban tokens"* will not dead-end at 0** — the endpoint relaxes to looser tiers until it finds something. Honesty matters: tell the user which tier returned the results so they can judge relevance themselves (`.meta.matchModeLabel` gives a pre-formatted human-readable version).
-
-When `matchMode === "majority"` returns nothing useful either, that's a genuine signal of either (a) a real gap, or (b) the user's wording doesn't match how curators tagged similar projects — try one synonym retry (e.g. *"oracle"* instead of *"price feed"*) before declaring full gap.
-
-### `GET /api/rfps`
-Curated **RFPs / sponsor briefs** for the Stellar ecosystem — confirmed problem statements that get funded by SCF when winners are picked. The native source for *"what should I build that someone will pay for?"* and *"what's currently fundable?"*. Use in Deep Dive step 8 (next steps) AND lead with this when the user asks generally what to build.
-
-Params: `q={keywords}`, `category={ai|consumer-dapps|defi|developer-tooling|gaming|infrastructure|nfts|payments|scf|web3-social}`, `quarter={q1-2026|q2-2026|...}`, **`status={open|closed}`**, `limit=N`.
-
-Returns: `.rfps[*]` with `id, title, description, technicalRequirements, category, categoryLabel, quarter, quarterLabel, **status** (open/closed), authorName, url`. Meta includes `.activeQuarter`, `.counts.{open,closed,total}`, and `.submitNewBriefAt`. `.funding` clarifies the SCF connection.
-
-**Always pair RFP results with these two external references so the user has the full picture:**
-- **SCF Handbook** — `https://stellar.gitbook.io/scf-handbook` — covers how SCF rounds work, application format, governance, award tiers, and verified-member rules. Recommend it for any user asking *"how does the funding work?"* or preparing an application.
-- **stellarlight.xyz/ideas** — the live RFP listing + the "Suggest a Need" form. Always link here when surfacing RFPs so the user can browse the full set, see quarter tabs, or submit their own.
-
-**Active RFPs vs closed RFPs:**
-- `status: "open"` RFPs are in the current SCF round (`activeQuarter`) and are **ready to be funded and built** — winners get an SCF grant. These are the actionable opportunities. Surface these first.
-- `status: "closed"` RFPs are from past quarters. **Surface them with a clear warning: *"This RFP was from {quarterLabel} — someone is likely already building it."*** It's not a dead lane. Always pair the warning with a concrete next step:
-  - **Surface the `.authorName` field** and recommend the user reach out to coordinate (*"The original author was {authorName} — DM them on Stellar Discord or check the Stellar GitHub org to see who picked it up"*).
-  - **Suggest competing/better takes** if the user has a clear differentiator (*"If your angle adds {X} the original brief didn't cover, that's still a viable build."*).
-  - Make clear they can't claim SCF funding for this RFP in the current round, but the work might still ship as an SCF grant in a future round.
-- Default behavior: when the user asks generally *"what should I build?"* or *"what RFPs are out there?"*, call `GET /api/rfps?status=open` first and lead with the active set. Mention the count from `.counts.open`. When you include closed RFPs as additional context, label them as past-quarter every time.
-
-**Important framing when there are 0 open matches:**
-- 0 open RFPs in a category doesn't mean *"no opportunity"*. It means *"no sponsor brief in the current SCF round (`.activeQuarter`) covers this lane yet."*
-- **Anyone can propose an RFP** at `https://stellarlight.xyz/ideas` (`.meta.submitNewBriefAt`) via the "Suggest a Need" button. Community submissions go through curators and graduate to confirmed briefs in upcoming rounds.
-- When you find no matching open RFP, tell the user this explicitly and surface the submission CTA. Don't frame it as a dead end; frame it as an invitation to define the brief themselves.
-
-### `GET /api/skills`
-Catalog of the 7 official Stellar Foundation skills from skills.stellar.org (soroban, dapp, assets, data, agentic-payments, zk-proofs, standards). Returned with descriptions + URLs so you can recommend the right one without leaving Scout's surface area. Server-cached for 24h.
-
-### `GET /api/skills/{name}`
-Full content of one SDF skill — returns JSON with `.skill.content` containing the entire SKILL.md (frontmatter included).
-
-Use this in Deep Dive step 5 (SDK recommendation) so you can quote or summarize the relevant SDF skill inline. After recommending it, tell the user to install the skill themselves at `https://skills.stellar.org/skills/{name}/SKILL.md` for ongoing use.
-
-### `GET /api/research`
-**The thesis-grounding endpoint.** Semantic search across a curated corpus of primary Stellar sources — SDF blog posts, the SCF Handbook, SEPs, developers.stellar.org, foundational papers (Mazieres SCP), the lumenloop awesome-scf playbooks + research articles, **Soroban protocol audit reports** (Certora, OtterSec, Halborn, OpenZeppelin, Code4rena, et al. via sorobansecurity.com), and the **Electric Capital Developer Reports** (annual + geographic dev-activity analyses, 2019–2023). ~4,500+ chunks total, embedded with Voyage AI `voyage-3` (1024-dim) and indexed in MongoDB Atlas Vector Search.
-
-Use this when the user asks a **conceptual / thesis / design-tradeoff / security question** that the other structured endpoints can't answer alone. Examples:
-- *"How does SCP federated consensus actually work?"*
-- *"What's the design rationale behind SEP-24?"*
-- *"What's the SCF prescreen process?"*
-- *"How do anchors handle KYC?"*
-- *"What audit findings have been reported for Blend's oracle?"*
-- *"Has any Soroban protocol been hit with an inflation attack?"*
-- *"How has Stellar's developer count changed since 2019?"*
-- *"What L1s does Electric Capital group Stellar with by dev-activity?"*
-
-Always cite the source URL from each returned chunk — that's the whole point. **Audit chunks** carry extra metadata: `.auditor`, `.protocol`, and `.severity` (`critical | high | medium | low | informational | unknown`) — surface these inline ("per a HIGH-severity finding in the Certora audit of Blend Protocol V2…"). **EC Developer Report chunks** are historical (2019–2023 PDFs); for the most recent year cross-reference `developerreport.com/ecosystems/stellar`.
-
-Params: `q={query}` (required), `source={sdf-blog|scf-handbook|sep|dev-docs|paper|scf-proposal|lumenloop|lumenloop-research|audit|ec-developer-report}` (optional filter), `limit=N` (default 8, max 25).
-
-Returns: `.results[*]` with `{id, source, title, section, url, content, chunkIndex, score}`. `.meta.mode` indicates `"vector"` (semantic search via Atlas $vectorSearch) or `"keyword"` (fallback when the vector index isn't ready). `.meta.model` reports the embedding model used.
-
-**Read the `score` before citing.** Vector search always returns the top-K nearest chunks even if none are truly relevant. Calibrated from real query patterns:
-- `score ≥ 0.78` → direct hit, cite confidently (e.g. SCP query → Mazières paper)
-- `score 0.72–0.78` → relevant, cite normally (e.g. "soroban storage" → dev-docs)
-- `score 0.68–0.72` → adjacent / partial — lead with *"broadly related, not a direct answer"*
-- `score < 0.68` → weak match; **don't cite as authoritative** — say *"the closest thing in the corpus is X, but it doesn't directly answer your question"*
-
-When all returned chunks score below 0.68, treat the topic as outside our corpus and tell the user explicitly — don't confabulate.
-
-**Rate limit:** 60 requests / minute / IP. Don't loop the endpoint.
-
-### `GET /api/status`
-Self-check — returns Scout skill version, current timestamp, and freshness (`lastUpdatedAt`) + counts for every data source. Call this on first use to surface data freshness in your answers, e.g. *"as of {lastUpdatedAt}, there are {count} curated Stellar projects in the directory."*
-
-## Example sessions
-
-### Example 1 — Conversational
-**User:** "Who built stablecoin off-ramps at Stellar hackathons?"
-**Agent action:** `GET /api/projects/search?q=stablecoin+offramp&limit=10` → list matches with hackathon, placement, prize.
-
-### Example 2 — Deep Dive
-**User:** "I want to build a privacy-preserving stablecoin on Stellar. Vet this idea."
-**Agent action:**
-1. Restate: *"You're proposing a stablecoin with confidential transactions / hidden balances, built on Stellar."*
-2. `GET /api/projects/search?q=privacy+stablecoin+confidential` → 1 adjacent match (XLM shielded prototype, abandoned).
-3. **Partial gap** — adjacent project exists but abandoned; user's angle is fresh.
-4. List the abandoned project + 2 ZK-adjacent projects.
-5. SDK rec: `GET /api/skills/zk-proofs` → quote relevant section inline. Tell user to install `https://skills.stellar.org/skills/zk-proofs/SKILL.md` for ongoing use. Also recommend `soroban`.
-6. Builders search: `GET /api/builders?q=zk` → surface candidates. **If < 3 hits, note the directory is small + growing and recommend Stellar Discord #builders.**
-7. Funding: `GET /api/projects/search?q=privacy+zk&scfAwarded=1` → report total SCF-funded $.
-8. Next steps: `GET /api/hackathons?status=upcoming` for events to target; `GET /api/rfps?q=zk+privacy` for open sponsor briefs that match (SCF-funded).
-
-### Example 3 — SDF skill discovery
-**User:** "I want to write a Soroban contract. What do I need to know?"
-**Agent action:**
-1. `GET /api/skills/soroban` → load the full SDF Soroban skill content.
-2. Use it to answer the user's question with cited references to the actual skill sections.
-3. Tell the user: *"For ongoing work, install this skill at `.claude/skills/stellar-soroban/SKILL.md` from `https://skills.stellar.org/skills/soroban/SKILL.md`."*
-
-### Example 4 — Hackathon track research
-**User:** "What prize tracks paid out the most at past Stellar Hacks events?"
-**Agent action:**
-1. `GET /api/hackathons?status=completed` → list past events.
-2. For each, `GET /api/hackathons/{slug}` → read `.hackathon.tracks[*]` (each has `name`, `winnerCount`, `submissionCount`, `totalPrizeUSD`).
-3. Aggregate tracks across events; rank by `totalPrizeUSD` desc.
-4. Surface top 5 tracks with prize totals + which hackathons paid them out.
-5. If track data is sparse (curators haven't tagged submissions), say so — don't infer tracks from project descriptions.
-
-### Example 5 — Funding-first project search
-**User:** "What SCF-funded projects work on payments? Which raised the most?"
-**Agent action:**
-1. `GET /api/projects/search?q=payments&scfAwarded=1&limit=20` → SCF-awarded payments projects.
-2. Sort by `.scfTotalAwardedUSD` desc. Sum total raised.
-3. Surface top 5 with name, SCF $, category, link.
-4. Optionally cross-reference recent hackathon submissions: filter results where `.hackathon` is set, to see which won prizes en route to SCF funding.
-
-### Example 6 — Match an idea to an open RFP (and what to do when there isn't one)
-**User:** "Is there an open Stellar RFP that matches my idea — a real-time price API for Soroban tokens?"
-**Agent action:**
-1. `GET /api/rfps?status=open&q=price+api+soroban` → only open / fundable briefs.
-2. **If matches** → surface title, description, technical requirements, quarter, link (e.g., `https://stellarlight.xyz/ideas/prices-api`), and the SCF-funding note (`.funding`).
-3. **If zero matches** → frame it as opportunity, not a dead end: *"No current SCF-round brief covers this lane yet — but anyone can propose one. Submit your idea as a sponsor brief at `https://stellarlight.xyz/ideas` (the 'Suggest a Need' button). Community submissions go through curators and graduate to confirmed RFPs in upcoming rounds."*
-4. **If partial matches** → call out which RFP is closest + what's different about the user's angle. Suggest submitting a sibling brief if the gap is meaningful.
-
-### Example 7 — Surface active RFPs ("what's ready to be funded?")
-**User:** "What Stellar RFPs are open right now? What can I build and get SCF-funded for?"
-**Agent action:**
-1. `GET /api/rfps?status=open` → the currently-fundable briefs.
-2. Read `.meta.activeQuarter` (e.g., "q2-2026") and `.meta.counts.open` (e.g., 5).
-3. Lead with: *"There are {open} confirmed RFPs open for SCF funding in {activeQuarterLabel}. Winners get an SCF grant."*
-4. List each open RFP with title, category, one-line description, and link. Group by category if helpful.
-5. Close with the submission CTA: *"None match what you want to build? Propose your own at `https://stellarlight.xyz/ideas` — community submissions graduate into future rounds."*
-
-### Example 8 — SCF grant applicant prep (full builder-type flow)
-**User:** "I'm planning to apply for an SCF grant for a Stellar-native invoice factoring product for SMEs. What should I know going in?"
-**Agent action:**
-1. **Confirm user type:** *"You're an SCF grant applicant — so I'll lead with what's been funded in this lane, then open briefs, then a technical-skill rec."*
-2. `GET /api/projects/search?q=invoice+factoring&scfAwarded=1` → prior funded work.
-   - If 0–2 matches: lane is open, signal that to the user.
-   - If 3+: surface the leaders, their funding amounts, and what they shipped. *"Be prepared to differentiate from {top names}."*
-3. `GET /api/projects/search?q=invoice+factoring` (broader) → unfunded competitors / hackathon submissions that didn't get SCF money. Signal whether the unfunded ones abandoned (`hackathonStatus`) — useful for the user's pitch ("X tried this and shelved it because…").
-4. `GET /api/rfps?status=open&q=invoice` → check if there's a direct open RFP. **If yes** — pitch becomes "applying against the {RFP title} brief", which is a stronger SCF application than a cold pitch. **If no, also fetch** `GET /api/rfps?status=closed&q=invoice` to surface past RFPs (warn about prior takers per closed-RFP rules above).
-5. SDK rec: `GET /api/skills/soroban` and `/api/skills/assets` — required reading for a Soroban-based SME finance product. Tell user to install both for the build phase.
-6. Point them at the two essential references:
-   - **SCF Handbook** (`https://stellar.gitbook.io/scf-handbook`) — read the application format, governance, award tiers, and verified-member rules before submitting.
-   - **stellarlight.xyz/ideas** — full RFP listing + quarter tabs + the "Suggest a Need" form if no open RFP fits.
-7. Suggest checking `https://communityfund.stellar.org` for current round dates.
-8. Honest close: *"SCF reviewers care about (a) clear gap, (b) feasibility on Soroban, (c) regional / use-case clarity. Your application should cite the {N} similar funded projects and explain your differentiator explicitly."*
-
-### Example 9 — Independent builder or team, no hackathon / no grant
-**User:** "I'm a Solidity dev moving to Stellar to ship a real-time settlement product. What's the state of the ecosystem?"
-**Agent action:**
-1. **Confirm user type:** *"Independent builder or team — so I'll lead with ecosystem traction + adjacent projects, not hackathon/grant specifics."*
-2. `GET /api/leaderboard` → ecosystem snapshot. Surface `.ecosystem.activeDevs28d`, `.ecosystem.commits28d`, `.ecosystem.multichainDevs28d`, `.ecosystem.stellarOnlyDevs28d`. For *cross-chain peer comparison* (Ethereum / Solana / etc.), chain a second call: `GET /api/research?source=ec-developer-report&q=stellar+L1+comparison`.
-3. `GET /api/projects/search?q=settlement+payment` → adjacent existing projects. Note which are SCF-funded vs not, which are abandoned.
-4. SDK rec: `GET /api/skills/soroban` + `/api/skills/agentic-payments` (settlement infra often touches both).
-5. Honest close: *"Independent builder or teams on Stellar typically still chase SCF funding eventually — even without a grant target now, vet your idea against the open RFPs at `https://stellarlight.xyz/ideas` to see if there's an aligned brief for the next round."*
-
-### Example 10 — Security-conscious design ("what's been exploited?")
-**User:** "I'm designing a Soroban lending market with oracle-fed liquidations. What audit findings should I worry about?"
-**Agent action:**
-1. **Scope the threat surface in plain language** before searching: lending markets typically have 3 critical attack-class regions — (a) oracle / price manipulation, (b) liquidation-flow correctness, (c) inflation / share-price attacks on deposit-share tokens. State this so the user sees the structure.
-2. **Pull real findings per attack class** from the audit corpus:
-   - `GET /api/research?q=oracle+price+manipulation+soroban&source=audit&limit=5`
-   - `GET /api/research?q=liquidation+race+condition+ordering&source=audit&limit=5`
-   - `GET /api/research?q=inflation+attack+share+price+deposit&source=audit&limit=5`
-3. **Cite each finding inline with auditor + severity + protocol metadata.** Don't just say *"there were oracle findings"* — say *"per the Certora audit of Blend Protocol V2 (HIGH severity), the oracle price feed can be manipulated when …"* with the URL. The chunks carry `.auditor`, `.protocol`, `.severity` — use them.
-4. **Filter by severity when the user is doing risk triage.** *"Show me only critical/high findings"* → re-query with the same `q` but mentally rank: chunks tagged `critical` or `high` first, then `medium`. Note: ~38% of audit chunks carry an inferred severity tag; the rest are TOC / scope / methodology sections and don't get a bucket.
-5. **Cross-link to skills.stellar.org** for the *how-to-fix* layer: `https://skills.stellar.org/soroban` covers safe oracle integration patterns; Scout surfaces what's been broken before, the SDF skill covers how to build it correctly. They compose.
-6. **Honesty floor:** if zero findings come back for a specific attack class, say so — *"no Soroban audit in the corpus has documented a finding for X — that means either it's a real gap or our corpus doesn't cover the relevant protocols yet."* Don't invent risk.
 
 ## Data freshness
 
