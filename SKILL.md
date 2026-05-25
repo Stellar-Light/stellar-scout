@@ -310,6 +310,19 @@ Self-check — returns Scout skill version, current timestamp, and freshness (`l
 4. SDK rec: `GET /api/skills/soroban` + `/api/skills/agentic-payments` (settlement infra often touches both).
 5. Honest close: *"Independent builder or teams on Stellar typically still chase SCF funding eventually — even without a grant target now, vet your idea against the open RFPs at `https://stellarlight.xyz/ideas` to see if there's an aligned brief for the next round."*
 
+### Example 10 — Security-conscious design ("what's been exploited?")
+**User:** "I'm designing a Soroban lending market with oracle-fed liquidations. What audit findings should I worry about?"
+**Agent action:**
+1. **Scope the threat surface in plain language** before searching: lending markets typically have 3 critical attack-class regions — (a) oracle / price manipulation, (b) liquidation-flow correctness, (c) inflation / share-price attacks on deposit-share tokens. State this so the user sees the structure.
+2. **Pull real findings per attack class** from the audit corpus:
+   - `GET /api/research?q=oracle+price+manipulation+soroban&source=audit&limit=5`
+   - `GET /api/research?q=liquidation+race+condition+ordering&source=audit&limit=5`
+   - `GET /api/research?q=inflation+attack+share+price+deposit&source=audit&limit=5`
+3. **Cite each finding inline with auditor + severity + protocol metadata.** Don't just say *"there were oracle findings"* — say *"per the Certora audit of Blend Protocol V2 (HIGH severity), the oracle price feed can be manipulated when …"* with the URL. The chunks carry `.auditor`, `.protocol`, `.severity` — use them.
+4. **Filter by severity when the user is doing risk triage.** *"Show me only critical/high findings"* → re-query with the same `q` but mentally rank: chunks tagged `critical` or `high` first, then `medium`. Note: ~38% of audit chunks carry an inferred severity tag; the rest are TOC / scope / methodology sections and don't get a bucket.
+5. **Cross-link to skills.stellar.org** for the *how-to-fix* layer: `https://skills.stellar.org/soroban` covers safe oracle integration patterns; Scout surfaces what's been broken before, the SDF skill covers how to build it correctly. They compose.
+6. **Honesty floor:** if zero findings come back for a specific attack class, say so — *"no Soroban audit in the corpus has documented a finding for X — that means either it's a real gap or our corpus doesn't cover the relevant protocols yet."* Don't invent risk.
+
 ## Data freshness
 
 - Hackathons + Projects + Builders metadata: refreshed continuously by curators
