@@ -1,87 +1,114 @@
 # Stellar Scout
 
-An AI skill for scouting the [Stellar](https://stellar.org) ecosystem before you build. Validate ideas, surface prior art across Stellar hackathons + SCF rounds + the curated project directory, recommend SDK tracks, find Stellar builders, and ground answers in primary sources (SEPs, papers, audit reports, the SCF Handbook).
+> Know what's been built. Find your gap.
 
-Installable into any AI agent that loads `SKILL.md` files — Claude Code, Codex, Cursor, OpenClaw, and 50+ others via the [`skills`](https://github.com/vercel-labs/skills) CLI.
+An AI skill that turns your coding agent into a Stellar ecosystem analyst — for builders entering hackathons, applying for SCF grants, or shipping independently.
+
+Installable into any agent that loads `SKILL.md` files: Claude Code, Codex, Cursor, OpenClaw, Amp, Antigravity, Cline, and 50+ others via the [`skills`](https://github.com/vercel-labs/skills) CLI.
 
 ## Install
 
 ```bash
+# Claude Code (default)
 npx skills add Stellar-Light/stellar-scout
-```
 
-For Codex:
-
-```bash
+# Codex
 npx skills add Stellar-Light/stellar-scout -a codex
-```
 
-For OpenClaw:
-
-```bash
+# OpenClaw
 npx skills add Stellar-Light/stellar-scout -a openclaw
 ```
 
-Powered by the [`skills`](https://github.com/vercel-labs/skills) CLI.
+Or paste [the raw `SKILL.md`](https://stellarlight.xyz/skills/stellar-scout.md) into your agent's skill directory.
 
-## What it does
+## What you ask it
 
-Two modes:
+**Pre-hackathon idea vetting**
 
-- **Conversational** — fast, cited answers backed by public stellarlight.xyz endpoints.
-- **Deep Dive** — triggered by *"vet this idea"* / *"should I build X"*. Runs an 8-step research workflow: prior-art search → gap classification + crowdedness score → competitor list → SDK recommendation → teammate candidates → funding signal → suggested next steps.
+> *"I want to build a Stellar wallet for college students with instant USDC off-ramps in Latin America. Should I?"*
 
-Gap classification: **Full gap** / **Partial gap** / **False gap**. Refuses to speculate when the data doesn't support a claim (evidence floor).
+Scout pulls existing wallet projects, checks SCF funding patterns, surfaces past hackathon winners in adjacent space, classifies the gap (full / partial / false), and tells you honestly whether to differentiate or pick a different lane.
 
-The skill routes its answers based on user type — hackathon entrant, SCF grant applicant, or independent builder/team. Each gets a different lead endpoint and example flow.
+**SCF grant prep**
 
-## Topic clusters
+> *"Is there an open Stellar RFP that matches my idea — a real-time price API for Soroban tokens?"*
 
-Aligned to [skills.stellar.org](https://skills.stellar.org)'s taxonomy:
+Scout queries the live RFP feed, finds the matching brief, surfaces author + tech requirements + funding terms, and warns when an RFP is closed for the current quarter.
 
-- Soroban smart contracts
-- Anchors & off-ramps
-- Agentic payments (x402, MPP)
-- Asset issuance (SAC, stablecoins, RWA)
-- Wallets & dapps
-- ZK proofs
-- SEP standards
-- Data infrastructure
+**Security-conscious design**
+
+> *"I'm designing a Soroban lending market. What audit findings should I worry about?"*
+
+Scout searches a corpus of every published Soroban audit (Certora, OtterSec, Halborn, OpenZeppelin, Code4rena, Veridise, Cantina, Runtime Verification, etc.) and surfaces real findings with auditor + severity + protocol inline — *"per the Certora audit of Blend Protocol V2 (HIGH severity), the oracle can be manipulated when …"*
+
+**Ecosystem questions**
+
+> *"How has Stellar's developer count changed since 2019?"*
+
+Scout pulls from the Electric Capital Developer Reports (2019–2023) for hard macro data, not vibes.
 
 ## How it works
 
-The skill teaches your AI agent how to query public read-only APIs on [stellarlight.xyz](https://stellarlight.xyz) — no auth, edge-cached, rate-limited.
+Scout teaches your AI agent how to query 14 public read-only APIs on [stellarlight.xyz](https://stellarlight.xyz) — no auth, edge-cached, rate-limited.
 
 | Endpoint | Purpose |
 | --- | --- |
-| `/api/hackathons` | Curated hackathons + live DoraHacks events. Auto-includes `fallbackChannels` (BuildOnStellar / stellarlight / DoraHacks) when status-scoped queries return 0. |
-| `/api/hackathons/{slug}` | Submissions, winners, tracks, outcome funnel. Dual-shape: curated (full detail) or DoraHacks-only (metadata + prize pool). |
-| `/api/builders` | Stellar Passport builder directory (currently empty pending sync — treat as future capability). |
-| `/api/projects/search` | Prior-art / competitor lookup. Tiered matching: strict AND → loose-1 → majority fallback, surfaced via `.meta.matchMode`. |
-| `/api/rfps` | Open + closed RFPs (sponsor briefs that get SCF-funded). Quarter-aware with `activeQuarter` and `counts.open`. |
-| `/api/research` | Semantic search over a ~4,500-chunk corpus (Voyage AI `voyage-3` + MongoDB Atlas Vector Search). Sources: SDF blog, SCF Handbook, SEPs, dev-docs, foundational papers, lumenloop playbooks + research, Soroban protocol audits (Certora / OtterSec / Halborn / OpenZeppelin / Code4rena via sorobansecurity.com), Electric Capital Developer Reports. |
-| `/api/skills` | Catalog of SDF skills from skills.stellar.org. |
-| `/api/skills/{name}` | Full content of one SDF skill. |
-| `/api/leaderboard` | Ecosystem developer activity (active devs, commits, peer L1 comparison). |
-| `/api/status` | Self-check + data freshness per source. |
+| `/api/research` | Vector search over a ~4,500-chunk research corpus (Voyage AI `voyage-3` + Atlas Vector Search). Sources: SDF blog, SCF Handbook, SEPs, dev docs, foundational papers, lumenloop community playbooks, Soroban audits, Electric Capital Developer Reports. |
+| `/api/hackathons` & `/api/hackathons/{slug}` | Curated hackathons + live DoraHacks feed. Empty-state surfaces fallback channels (BuildOnStellar / stellarlight / DoraHacks org). |
+| `/api/hackathons/compare` | Side-by-side compare of 2–5 hackathons with delta notes. |
+| `/api/analyze` | Cross-event analytics: prize totals, dev funnel, top categories, SCF distribution. |
+| `/api/clusters` | Topic clusters across the projects directory with crowdedness scores (log-scaled, 1–10). |
+| `/api/projects/search` | Prior-art + competitor lookup with tiered match-mode (strict → loose → majority). |
+| `/api/rfps` | Open + closed RFPs with quarter awareness. |
+| `/api/builders` | Builder directory (sourced from Stellar Passport). |
+| `/api/skills` & `/api/skills/{name}` | Catalog of [skills.stellar.org](https://skills.stellar.org)'s 7 official skills. |
+| `/api/leaderboard` | Ecosystem dev activity, peer L1 comparison. |
+| `/api/feedback` | Submit feedback when the skill gets something wrong. Closes the loop. |
+| `/api/status` | Health check + endpoint enumeration. |
 
-## What's grounded in primary sources
+## Composable with skills.stellar.org
 
-When the user asks a *thesis / design-tradeoff / security* question, the skill calls `/api/research` and cites primary sources inline:
+This skill covers **strategy**: *what's already been built, what should you build, who should you talk to*.
 
-- *"What audit findings have been reported for Blend's oracle?"* → surfaces real Certora / OtterSec / Code4rena findings with auditor, protocol, and severity metadata
-- *"How does SCP federated consensus actually work?"* → cites Mazières et al.
-- *"What does the SCF awards committee look for?"* → cites the SCF Handbook + lumenloop voter playbooks
-- *"How has Stellar's developer count changed over years?"* → cites Electric Capital Developer Reports
+For **execution** (writing Rust on Soroban, building a dApp frontend, integrating SEP standards), install the official [skills.stellar.org](https://skills.stellar.org) skills alongside this one. The skills compose:
 
-## Companion skills
+- `stellar-scout` ← what to build, what's been built, where's the gap, what's open RFP
+- `skills.stellar.org/soroban` ← how to write the contract
+- `skills.stellar.org/dapp` ← how to wire the frontend
+- `skills.stellar.org/anchors` ← how to integrate with Stellar anchors
 
-For *how to build* (Rust on Soroban, dapp frontends, SEP standards, etc.), install the official [skills.stellar.org](https://skills.stellar.org) skills as well. Scout (this skill) covers strategy and prior-art; the SDF skills cover execution. They compose.
+## Sources
+
+Scout grounds answers in primary sources, with inline citations:
+
+- **Stellar Development Foundation** — blog posts, SCF Handbook, developers.stellar.org
+- **SEPs** — all 57 protocol standards from [stellar/stellar-protocol](https://github.com/stellar/stellar-protocol)
+- **Foundational papers** — Mazières et al. on the Stellar Consensus Protocol
+- **[lumenloop](https://lumenloop.com)** community — SCF playbooks + ecosystem research
+- **[sorobansecurity.com](https://sorobansecurity.com)** — every published Soroban audit (13 firms, 56 reports)
+- **[Electric Capital Developer Reports](https://www.developerreport.com)** — annual + geographic ecosystem analyses
+
+## Updates
+
+Run periodically to pull the latest version:
+
+```bash
+npx skills update stellar-scout
+```
+
+The corpus auto-refreshes daily at 06:00 UTC. New audit reports, RFPs, and ecosystem posts appear in `/api/research` within a day of publication.
+
+## Feedback
+
+When the skill gets something wrong, your agent can call `POST /api/feedback` directly. Or:
+
+- Open an issue in [this repo](https://github.com/Stellar-Light/stellar-scout/issues)
+- Suggest a missing source via [stellarlight.xyz/submit](https://stellarlight.xyz/submit)
 
 ## Source of truth
 
-This `SKILL.md` mirrors [`stellarlight/public/skills/stellar-scout.md`](https://github.com/theboycoder/stellarlight/blob/main/public/skills/stellar-scout.md) and is auto-synced from there. The skill content lives next to the APIs it documents.
+This `SKILL.md` mirrors [`stellarlight/public/skills/stellar-scout.md`](https://stellarlight.xyz/skills/stellar-scout.md). The skill content lives next to the APIs it documents.
 
 ## License
 
-MIT
+MIT. Built as a public good for Stellar builders by [stellarlight.xyz](https://stellarlight.xyz).
