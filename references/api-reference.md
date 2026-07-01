@@ -43,13 +43,13 @@ Single-hackathon detail. **Two response shapes** depending on the data source:
 **(a) Curated** (slug resolves to a Payload Hackathons row) — full detail:
 - `.hackathon.stats` — totalSubmissions, totalPrizeUSD, winners count, outcome funnel (built / inProgress / abandoned / unknown)
 - `.hackathon.tracks[*]` — prize tracks derived from past submissions, each with `{name, winnerCount, submissionCount, totalPrizeUSD}`. Use for "which tracks did this hackathon pay out for?"
-- `.winners[*]` — projects that placed
+- `.winners[*]` — projects that placed, **sorted by placement** (`winners[0]` = 1st), each with a numeric `placementRank` (1 = best) alongside the `hackathonPlacement` label — sort/filter on `placementRank`, don't parse the string
 - `.submissions[*]` — every submission with placement, prize, track
 
 **(b) DoraHacks-only** (slug matches a live DoraHacks event we haven't curated in our DB) — now pulls the **live submission roster** from DoraHacks:
 - `.hackathon.source = "dorahacks"`, `.hackathon.prizePoolUSD`, `.hackathon.hackersCount`
 - `.submissions[*]` — every submission, pulled live: `{name, githubUrl, demoUrl, videoUrl, track, description, hackathonPlacement, award, isWinner, url}`
-- `.winners[*]` — the submissions that placed (derived from `winner_prizes`), each with `hackathonPlacement` (e.g. "1st Place") + `award`
+- `.winners[*]` — the submissions that placed (derived from `winner_prizes`), **sorted by placement** (`winners[0]` = 1st), each with `hackathonPlacement` (e.g. "1st Place"), a numeric `placementRank` (1 = best), + `award`
 - `.hackathon.tracks` and the top-level `.tracks` — derived from the roster, each `{name, submissionCount, winnerCount}`. Always present now (`[]` when there are no tracks)
 - Read-through + cached ~1h; if the DoraHacks feed is briefly unavailable these degrade to empty and `.meta.note` says so. `.hackathon.externalUrl` is the canonical event page.
 - **Per-event coverage is uneven** — ideathons / brand-new events may have **no submitted buidls yet**, so `submissions`/`winners`/`tracks` are legitimately empty (not an error); larger build events (e.g. `stellar-hacks-blend`, `stellar-agents-x402-stripe-mpp`) are fully populated.
@@ -236,3 +236,9 @@ A curated, latest-first feed of contract-affecting changes to the API, MCP tools
 
 ## `GET /api/repos/explain`
 **Deep code answers** — pairs StellarLight's repo routing with DeepWiki. Ask a deep code question (`?q=where are transaction result codes defined`) and it routes to the authoritative repo (error/result codes, consensus/SCP, XDR → `stellar/stellar-core`; Horizon → `stellar/go`; RPC → `stellar/stellar-rpc`; SDKs / SEP reference impls), then returns a **source-grounded answer** from DeepWiki — the actual answer with source files, not just a link. Pin a repo with `?repo=owner/name`, or omit to auto-route. Returns `repo`, `routedVia`, `answer`, `alternateRepos`, and `sources` (repoUrl + deepWikiUrl + deepWikiSearchUrl). Degrades gracefully — if DeepWiki is briefly unavailable you still get the authoritative repo to read. **Use for** *"where is X defined / how does Y work"* internals questions; for *which* repos exist use `/api/repos/search`, for ecosystem docs/SEPs/audits use `/api/research`. Also exposed as the `explain_repo` MCP tool.
+
+## `GET /api/repos/search`
+Search the indexed-and-scored Stellar GitHub repo index (~2,300 repos) — the code layer beneath the project directory. **Params:** `q={tech/keyword}` (synonym-expanded: zk→zero-knowledge, oracle→price-feed, …), `language={Rust|TypeScript|…}`, `minScore={0-100}` (40+ = high-signal), `limit`/`offset`. Ranked by `repoScore` (0–100 = freshness + traction + hackathon/SCF/builder authority). For infra/protocol queries (error codes, consensus, XDR, horizon, rpc) it floats the **canonical SDF repos** to the top and lists them in `meta.canonical`. **Every result carries `deepWikiUrl`** (hand off to `/api/repos/explain` for the deep answer). The same graded repos ride inline on `/api/projects/search` as `codeReferences`. **Use for** *"show me repos/code for X"*; for what products *exist* use `/api/projects/search`; for deep internals of a specific repo use `/api/repos/explain`. Exposed as the `search_repos` MCP tool.
+
+## `GET /api/partners`
+Curated directory of Stellar ecosystem **partners** — audit firms, anchors, on/off-ramps, infrastructure, tooling. **Params:** `type={anchor|on-off-ramp|infrastructure|tooling|protocol|wallet|audit-firm|legal|agency|other}`, `sector`, `region`, `accepting=1`, `q`, `limit`/`offset`. Each entry has `name`, `partnerType`, `sectors[]`, `description`, `websiteUrl`, and a `verified` signal block (`verified:false` = curated seed, not yet partner-claimed). `.meta.counts.total` is the full match count. **Use for** *"who should audit my Soroban contract"* (`?type=audit-firm`), *"find an anchor / on-off-ramp in {region}"*, or partner discovery for integrations. For projects/products that were BUILT use `/api/projects/search`; for the people who build them use `/api/builders`. (REST + OpenAPI only — not yet wired as a dedicated MCP tool.)
