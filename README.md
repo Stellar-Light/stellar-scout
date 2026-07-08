@@ -98,12 +98,28 @@ npx skills update stellar-scout
 
 The corpus auto-refreshes daily at 06:00 UTC. New audit reports, RFPs, and ecosystem posts appear in `/api/research` within a day of publication.
 
-## Feedback
+## Issues, tracking & contributing
 
-When the skill gets something wrong, your agent can call `POST /api/feedback` directly. Or:
+**This repo is the official public tracker for the Stellar Scout data layer** — the live API, this skill, and the MCP server. If Scout returns something wrong, stale, or missing:
 
-- Open an issue in [this repo](https://github.com/Stellar-Light/stellar-scout/issues)
-- Suggest a missing source via [stellarlight.xyz/submit](https://stellarlight.xyz/submit)
+- **Open an issue here** → [Stellar-Light/stellar-scout/issues](https://github.com/Stellar-Light/stellar-scout/issues). Include the exact request URL + what you expected; a reproducible `curl` makes fixes same-day.
+- Agents can also file directly via `POST https://stellarlight.xyz/api/feedback`.
+- Suggest a missing project/source via [stellarlight.xyz/submit](https://stellarlight.xyz/submit).
+
+Fixes are announced on the machine-readable changelog — `GET https://stellarlight.xyz/api/changelog` — so automated consumers can detect resolved findings without polling issues.
+
+**The whole surface, for reference:**
+
+| Surface | Where |
+|---|---|
+| Live API | `https://stellarlight.xyz/api/*` |
+| OpenAPI 3.1 spec | `https://stellarlight.xyz/api/openapi.json` |
+| Changelog (machine-readable) | `https://stellarlight.xyz/api/changelog` |
+| Health / freshness | `https://stellarlight.xyz/api/status` |
+| TS client | [`@stellar-light/api-client`](https://www.npmjs.com/package/@stellar-light/api-client) |
+| MCP server | [`@stellar-light/scout-mcp`](https://www.npmjs.com/package/@stellar-light/scout-mcp) · [repo](https://github.com/Stellar-Light/scout-mcp) |
+
+The application codebase is being migrated into this org; until that lands, this repo is the tracking home and the live API + spec + changelog are the source of truth for behavior.
 
 ## Source of truth
 
