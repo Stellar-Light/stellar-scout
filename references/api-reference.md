@@ -107,6 +107,17 @@ Stellar builder directory (synced from Stellar Passport). **Populated but small 
 
 **Returns:** `.builders[*]` with githubUsername, displayName, bio, roleTitle, location, projects[]. (Rows carry NO SCF-tier/award-track data — the never-populated `scfTier` field was removed in spec 1.7.19; never present SCF-tier claims about people. A project's SCF award history lives on `/api/projects/search` rows.) When `.meta.counts.returned === 0`, the response also includes `.meta.advisory` with a one-line summary + 2 fallback channels (Stellar Discord + GitHub topic:stellar) — relay these verbatim to the user. The advisory exists specifically so you don't confabulate ecosystem-level claims from an empty directory.
 
+**Person lookups:** this index is GitHub-contributor builders only. A name query for an SDF staffer/leader/board member (e.g. "justin rice", "tomer weller") that matches nobody returns `.meta.advisory` with the person's identification from the SDF roster (when known) and a pointer to `/api/people` — don't treat it as "person doesn't exist".
+
+---
+
+## `GET /api/people`
+The SDF team/people index — **leadership, board of directors, and advisors** (name → role → org), quoted from `stellar.org/foundation/team` with provenance (`.meta.source`, `.meta.observedAt`). Deliberately distinct from `/api/builders`: a VP of Ecosystem or a board member is **not** a GitHub-contributor "builder". Use for *"who is {person}"*, *"what's {person}'s role at SDF"*, *"who leads {area}"*, *"who's on the board"*.
+
+**Params:** `q={name|role|org}` (all tokens must match), `section={Leadership|Board of directors|Advisors}` (aliases `board`/`advisor` accepted; invalid → 400), `limit`/`offset`. Unknown params 400.
+
+**Returns:** `.people[*]` with `name`, `role`, `section`, `org` (SDF for leadership, the external org for board/advisors), `sourceUrl`, `observedAt`. `.meta.sections` lists the sections present. A 0-result `.meta.advisory` routes to `/api/builders` (GitHub contributors) or `/api/research` (doc/spec authorship). Exposed as the `get_people` MCP tool.
+
 ---
 
 ## `GET /api/projects/search`
@@ -181,7 +192,9 @@ Use this when the user asks a **conceptual / thesis / design-tradeoff / security
 
 Always cite the source URL from each returned chunk — that's the whole point. **Audit chunks** carry extra metadata: `.auditor`, `.protocol`, and `.severity` (`critical | high | medium | low | informational | unknown`) — surface these inline ("per a HIGH-severity finding in the Certora audit of Blend Protocol V2…"). **EC Developer Report chunks** are historical (2019–2023 PDFs); for the most recent year cross-reference `developerreport.com/ecosystems/stellar`.
 
-**Params:** `q={query}` (required), `source={sdf-blog|scf-handbook|sep|cap|dev-docs|paper|scf-proposal|lumenloop|lumenloop-research|audit|incident|security-program|ec-developer-report}` (optional filter), `limit=N` (default 8, max 25). Invalid source returns 400 with `validSources`. Use `security-program` for bug-bounty / vulnerability-disclosure program status (which program is current, where to report).
+**Params:** `q={query}` (required), `source={sdf-blog|scf-handbook|sep|cap|dev-docs|paper|scf-proposal|lumenloop|lumenloop-research|audit|incident|security-program|sdf-org|ec-developer-report|release}` (optional filter), `limit=N` (default 8, max 25). Invalid source returns 400 with `validSources`. Use `security-program` for bug-bounty / vulnerability-disclosure program status, `sdf-org` for SDF's canonical org pages (mandate, team, enterprise fund), and **`release`** for stellar-core / stellar-cli / SDK release notes — what shipped, when (protocol upgrade tags like `v27.0.0`).
+
+**Audit-metadata filters:** `auditor={firm}` (case-insensitive exact, e.g. `OtterSec`), `protocol={name}` (substring), `severity={critical|high|medium|low|informational|unknown}` (case-insensitive). Any of these **implies `source=audit` at retrieval** — an explicit contradictory `source=` returns 400. Severity is section-inferred and `unknown` for most PDF-derived chunks; for report-level enumeration use `/api/audits` instead.
 
 **Returns:** `.results[*]` with `{id, source, title, section, url, content, chunkIndex, score}`. `.meta.mode` indicates `"vector"` (semantic search via Atlas $vectorSearch) or `"keyword"`. **Mode is chosen per query (dynamic), not per source** — the *same* `source` can return either mode depending on the query string, so don't pin a mode to a source. `.meta.model` reports the embedding model used.
 
@@ -194,6 +207,24 @@ Always cite the source URL from each returned chunk — that's the whole point. 
 When all returned chunks score below 0.68, treat the topic as outside our corpus and tell the user explicitly — don't confabulate.
 
 **Rate limit:** 60 requests / minute / IP. Don't loop the endpoint.
+
+---
+
+## `GET /api/audits`
+**The enumerable audit registry** — one row per published security-audit report (58 reports from sorobansecurity.com), each with a normalized auditor name, publication date, and a **hand-verified link to the directory project** (`projectSlug`). Use this to *enumerate or count* audits ("list all audits for Blend", "what has OtterSec audited on Stellar", "newest Soroban audits"); use `/api/research?source=audit` for what a report actually *found* (full text).
+
+**Params (strict — unknown params return 400, never silently ignored):** `project={slug}` (exact directory slug), `auditor={firm}` (case-insensitive), `q={text}` (substring on title/protocol/project), `since=YYYY-MM-DD` (real dates only — `2026-13-01` is a 400), `limit` (default/max 100), `offset`.
+
+**Returns:** `.audits[*]` with `{reportId, title, reportUrl, auditor, protocol, projectSlug, projectName, linkBasis, publishedAt, dateBasis, observedAt, findingsTotal, severityCounts, chunksIndexed}`.
+
+**Semantics an agent must not misread:**
+- A project **absent** here has no audit *on record at our source* — that is NOT a claim the project is unaudited. Say "no published audit in the registry", never "unaudited".
+- `findingsTotal` / `severityCounts` are **null = not extracted, NOT zero**. They populate only for auditor formats that parse deterministically AND round-trip their own stated totals (OtterSec, Veridise, Certora, Code4rena, Hacken — ~20 of 58 reports); severity breakdowns only where the format guarantees per-finding severity (Certora tables, Code4rena tier headings).
+- `dateBasis`: `published` = a real date-stamp; `portal-record` = a wall-clock portal timestamp (likely upload time) — don't treat it as publication recency.
+- `linkBasis`: `name-exact | alias` = verified link; `unmatched` = verified NO directory project exists for the audited codebase.
+- On a filtered zero, check `.meta.didYouMean` — a near-miss name form (`project=blend-capital`, `auditor=Otter Sec`) gets a suggested correction instead of a silent empty.
+
+**Rate limit:** 60 requests / minute / IP.
 
 ---
 

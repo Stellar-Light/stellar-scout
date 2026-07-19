@@ -122,7 +122,7 @@ Triggered by *"draft my SCF pitch"*, *"help with my SCF application"*, *"how do 
 Triggered by *"who should audit my contract"*, *"find me an auditor"*, *"which audit firm for Soroban"*. The audit corpus (sorobansecurity.com aggregation — Certora, OtterSec, Halborn, OpenZeppelin, Code4rena, et al.) is the evidence base.
 
 1. **Clarify protocol type.** Lending? AMM? Payments? Token issuance? Audit relevance is per-domain — a firm great at AMM math may have no SEP-24 anchor experience.
-2. **Pull relevant audits.** `/api/research?source=audit&q={protocol type keywords}&limit=15` — each chunk carries the firm name + severity metadata.
+2. **Enumerate first, then read.** `/api/audits?q={protocol type keyword}` (or `?project={slug}` for a named protocol) gives the report-level census — auditor, date, findings counts where extracted. Then `/api/research?source=audit&q={protocol type keywords}&limit=15` for what the reports actually found (each chunk carries firm + severity metadata; the `auditor=`/`protocol=` filters narrow to one firm or codebase). Remember: absence from the registry ≠ unaudited, and null findings counts ≠ zero findings.
 3. **Aggregate by firm.** Which firms audited similar Soroban protocols, how recently, what severity classes they caught. A firm that found criticals in a similar protocol is signal — they know where the bodies are buried in this domain.
 4. **Rank 2–4 candidates** with: relevant Soroban audit count, example protocols audited, notable finding classes (cite finding + severity), link to a sample report.
 5. **State the coverage limit.** The corpus only contains *published* audits. Firms with strong private-engagement track records won't appear. Say so explicitly — this is a ranked list of *evidenced* firms, not a market census.
@@ -209,13 +209,15 @@ Full docs in `references/api-reference.md`. Quick lookup table:
 | `/api/hackathons/compare` | GET/POST | Side-by-side comparison of 2-5 hackathons with `deltas` |
 | `/api/analyze` | GET | Cross-event analytics rollup (hackathons + categories + funding) |
 | `/api/clusters` | GET | Topic clusters by category/type with crowdedness score |
-| `/api/builders` | GET | Builder directory (Stellar Passport) — filter by `skill=` (searches bio) or `location=` |
+| `/api/builders` | GET | Builder directory (Stellar Passport GitHub contributors) — filter by `skill=` (searches bio) or `location=`. For SDF staff/leadership/board, use `/api/people` |
+| `/api/people` | GET | SDF team/people index — leadership, board of directors, advisors (name → role → org). Filter by `q=` (name/role/org) or `section=`. NOT builders — a VP/board member isn't a GitHub contributor |
 | `/api/projects/search` | GET | Project search (tiered `matchMode`) — each result includes its GitHub **repos** + a graded **`codeReferences`** list |
 | `/api/repos/search` | GET | The Stellar repo/code index (2,000+ repos) — ranked by `repoScore` (freshness + traction + authority + hackathon-judge override) |
 | `/api/rfps` | GET | Open + closed SCF-funded sponsor briefs |
 | `/api/skills` | GET | SDF skills catalog (skills.stellar.org) |
 | `/api/skills/{name}` | GET | Full content of one SDF skill |
-| `/api/research` | GET | Vector search over ~4,500-chunk research corpus |
+| `/api/research` | GET | Vector search over ~4,700-chunk research corpus (14 sources incl. audits, incidents, core/SDK release notes) |
+| `/api/audits` | GET | Enumerable audit registry — one row per published report, hand-verified project links, findings counts where deterministically extracted |
 | `/api/feedback` | POST | In-skill feedback channel (bug/missing-data/wrong-answer/suggestion) |
 
 All endpoints rate-limited per IP. All return `.meta.counts` + `.meta.source` for traceability.
