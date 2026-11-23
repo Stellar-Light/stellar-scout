@@ -49,7 +49,7 @@ Scout pulls from the Electric Capital Developer Reports (2019–2023) for hard m
 
 ## How it works
 
-Scout teaches your AI agent how to query 14 public read-only APIs on [stellarlight.xyz](https://stellarlight.xyz) — no auth, edge-cached, rate-limited.
+Scout teaches your AI agent how to query the public read-only APIs on [stellarlight.xyz](https://stellarlight.xyz): no auth, edge-cached, rate-limited. The main ones:
 
 | Endpoint | Purpose |
 | --- | --- |
@@ -60,10 +60,9 @@ Scout teaches your AI agent how to query 14 public read-only APIs on [stellarlig
 | `/api/clusters` | Topic clusters across the projects directory with crowdedness scores (log-scaled, 1–10). |
 | `/api/projects/search` | Prior-art + competitor lookup with tiered match-mode (strict → loose → majority). |
 | `/api/rfps` | Open + closed RFPs with quarter awareness. |
-| `/api/builders` | Builder directory (sourced from Stellar Passport). |
-| `/api/skills` & `/api/skills/{name}` | Catalog of [skills.stellar.org](https://skills.stellar.org)'s 7 official skills. |
+| `/api/builders` | Builder directory: only opt-in Stellar Passport profiles. The `builders` entry in `/api/status` gives its current size. |
+| `/api/skills` & `/api/skills/{name}` | Merged skills catalog: [skills.stellar.org](https://skills.stellar.org)'s official set plus Stellar Light, LumenLoop, community and external entries (`.meta.counts` has the current totals). `/api/skills/{name}` returns full SKILL.md content where the source ships one, metadata only otherwise. |
 | `/api/leaderboard` | Ecosystem dev activity, peer L1 comparison. |
-| `/api/feedback` | Submit feedback when the skill gets something wrong. Closes the loop. |
 | `/api/status` | Health check + endpoint enumeration. |
 
 ## Composable with skills.stellar.org
@@ -73,9 +72,10 @@ This skill covers **strategy**: *what's already been built, what should you buil
 For **execution** (writing Rust on Soroban, building a dApp frontend, integrating SEP standards), install the official [skills.stellar.org](https://skills.stellar.org) skills alongside this one. The skills compose:
 
 - `stellar-scout` ← what to build, what's been built, where's the gap, what's open RFP
-- `skills.stellar.org/soroban` ← how to write the contract
-- `skills.stellar.org/dapp` ← how to wire the frontend
-- `skills.stellar.org/anchors` ← how to integrate with Stellar anchors
+- [`smart-contracts`](https://stellarlight.xyz/skills/smart-contracts) ← how to write the contract
+- [`dapp`](https://stellarlight.xyz/skills/dapp) ← how to wire the frontend
+
+`GET https://stellarlight.xyz/api/skills?source=sdf` lists the current official set; each entry's `install` field says how to install it.
 
 ## Sources
 
@@ -103,7 +103,7 @@ The corpus auto-refreshes daily at 06:00 UTC. New audit reports, RFPs, and ecosy
 **This repo is the official public tracker for the Stellar Scout data layer** — the live API, this skill, and the MCP server. If Scout returns something wrong, stale, or missing:
 
 - **Open an issue here** → [Stellar-Light/stellar-scout/issues](https://github.com/Stellar-Light/stellar-scout/issues). Include the exact request URL + what you expected; a reproducible `curl` makes fixes same-day.
-- Agents can also file directly via `POST https://stellarlight.xyz/api/feedback`.
+- Agents whose host allows writes can file a report through the optional companion [`references/feedback.md`](references/feedback.md). The skill itself is read-only.
 - Suggest a missing project/source via [stellarlight.xyz/submit](https://stellarlight.xyz/submit).
 
 Fixes are announced on the machine-readable changelog — `GET https://stellarlight.xyz/api/changelog` — so automated consumers can detect resolved findings without polling issues.
